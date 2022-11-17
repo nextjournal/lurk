@@ -1,0 +1,8 @@
+{:paths ["dev" "notebooks" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/core.async {:mvn/version "1.6.673"}
+        commons-io/commons-io {:mvn/version "2.11.0"}
+        io.github.nextjournal/clerk {:git/sha "3c721ce499f3a2017a25d31ddab7e80561f1bdf0"}
+        org.msync/lucene-clj {:mvn/version "0.2.0-SNAPSHOT"}
+        cheshire/cheshire    {:mvn/version "5.10.0"}}}
+
