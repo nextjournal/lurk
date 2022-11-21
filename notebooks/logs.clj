@@ -198,8 +198,24 @@
 
 (defonce !query-results (atom []))
 
-^::clerk/sync
+(def editor-sync-viewer
+  {:transform-fn (comp v/mark-presented
+                       (v/update-val
+                        (comp v/->viewer-eval symbol :nextjournal.clerk/var-from-def)))
+   :render-fn
+   '(fn [code-state _]
+      [:div.bg-neutral-50
+       [nextjournal.clerk.render.code/editor @code-state
+        {:on-change (fn [text] (swap! code-state (constantly text)))
+         :extensions (.concat (codemirror.view/lineNumbers)
+                              (codemirror.view/highlightActiveLine)
+                              nextjournal.clerk.render.code/paredit-keymap)}]
+       [:button.absolute.right-2.text-xl.cursor-pointer
+        {:class "top-1/2 -translate-y-1/2"
+         :on-click #(v/clerk-eval `(search!))} "▶️"]])})
+^{::clerk/sync true ::clerk/viewer editor-sync-viewer ::clerk/visibility {:result :show}}
 (defonce !lucene-query (atom ""))
+
 
 (defn search! []
   (reset! !query-results
@@ -212,23 +228,6 @@
                                                      DateTools$Resolution/SECOND)])
                :text @!lucene-query})
             (map #(update % :timestamp str) (reverse @!log-lines)))))
-
-^{::clerk/viewer {:render-fn '(fn text-input-box [var-name]
-                                (let [text-state @(resolve var-name)]
-                                  [:div.my-1.relative
-                                   [:input {:type :text
-                                            :auto-correct "off"
-                                            :spell-check "false"
-                                            :placeholder "Query.."
-                                            :value @text-state
-                                            :id "query-text-input"
-                                            :on-change #(swap! text-state (constantly (.. % -target -value)))
-                                            :class "px-3 py-2 relative bg-white bg-white rounded text-base font-sans border border-slate-200 shadow-inner outline-none focus:outline-none focus:ring w-full"}]
-                                   [:button.absolute.right-2.text-xl.cursor-pointer
-                                    {:class "top-1/2 -translate-y-1/2"
-                                     :on-click #(v/clerk-eval `(search!))} "▶️"]]))}
-  ::clerk/visibility {:result :show}}
-`!lucene-query
 
 (defn reset-state! []
   (reset! vega-selection nil)
