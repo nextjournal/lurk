@@ -1,4 +1,4 @@
-(ns nextjournal.lurk.logs
+(ns nextjournal.lurk
   {:nextjournal.clerk/visibility {:code :hide :result :hide}}
   (:require [cheshire.core :as json]
             [clojure.core.async :as async]
@@ -191,7 +191,7 @@
                         (.addEventListener view
                                            "mouseup"
                                            (fn [_event _item]
-                                             (swap! logs/vega-selection (constantly (deref !selection-state)))
+                                             (swap! nextjournal.lurk/vega-selection (constantly (deref !selection-state)))
                                              (v/clerk-eval `(search!)))))
                       embedded-vega))
   :embed/opts {:actions false}})
