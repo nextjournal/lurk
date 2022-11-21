@@ -1,4 +1,4 @@
-(ns logs
+(ns nextjournal.lurk.logs
   {:nextjournal.clerk/visibility {:code :hide :result :hide}}
   (:require [cheshire.core :as json]
             [clojure.core.async :as async]
