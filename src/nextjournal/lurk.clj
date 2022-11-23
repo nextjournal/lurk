@@ -1,5 +1,6 @@
 (ns nextjournal.lurk
-  {:nextjournal.clerk/visibility {:code :hide :result :hide}}
+  {:nextjournal.clerk/visibility {:code :hide :result :hide}
+   :nextjournal.clerk/css-class [:bg-slate-200 :min-h-screen]}
   (:require [cheshire.core :as json]
             [clojure.core.async :as async]
             [clojure.edn :as edn]
@@ -139,62 +140,21 @@
 (defonce stop-recompute! (recompute-thread))
 
 (comment
-(do
-  (stop-recompute!)
-  (.stop follower)
-  (reset! !log-lines []))
-)
-
-;; ## Using Lucene to search 🪵
+  (do
+    (stop-recompute!)
+    (.stop follower)
+    (reset! !log-lines []))
+  )
 
 ^::clerk/sync
 (defonce vega-selection (atom nil))
 
 (defn vega-datetime-str [instant]
   (str (.format (.withZone
-                  (java.time.format.DateTimeFormatter/ofPattern "dd MMM yyyy HH:mm:ss")
-                  (ZoneId/from ZoneOffset/UTC))
+                 (java.time.format.DateTimeFormatter/ofPattern "dd MMM yyyy HH:mm:ss")
+                 (ZoneId/from ZoneOffset/UTC))
                 instant)
        " GMT"))
-
-^{::clerk/visibility {:result :show}}
-(clerk/vl
- {:width 650
-  :height 200
-  :encoding {"x" {"field" "logentry"
-                  "timeUnit" {"utc" true
-                              "unit" "yearmonthdatehoursminutesseconds"}
-                  "type" "nominal"
-                  "axis" {"labelAngle" 0}}
-             "y" {"aggregate" "count"
-                  "type" "quantitative"
-                  "title" "count"}}
-  :layer [{:data {:values (map (fn [{:keys [timestamp]}] {:logentry (vega-datetime-str timestamp)}) @!log-lines)}
-           :mark "bar"}
-          {:params [{:name "interval_selector"
-                     :select {:type "interval"
-                              :encodings ["x"]}}]
-           :mark "area"}]
-  :embed/callback (v/->viewer-eval
-                   '(fn [embedded-vega]
-                      (let [view (.-view embedded-vega)
-                            !selection-state (atom nil)]
-                        ;; on every selection change, store the selection
-                        (.addSignalListener view
-                                            "interval_selector"
-                                            (fn [_signal selection]
-                                              (reset! !selection-state
-                                                      (js->clj (.-utcyearmonthdatehoursminutesseconds_logentry selection)))))
-                        ;; mouse releases set the sync'd atom to the current
-                        ;; selection, avoiding many updates to sync'd atom on
-                        ;; every intermediate selection change
-                        (.addEventListener view
-                                           "mouseup"
-                                           (fn [_event _item]
-                                             (swap! nextjournal.lurk/vega-selection (constantly (deref !selection-state)))
-                                             (v/clerk-eval `(search!)))))
-                      embedded-vega))
-  :embed/opts {:actions false}})
 
 (defonce !query-results (atom []))
 
@@ -205,17 +165,70 @@
                         (comp v/->viewer-eval symbol :nextjournal.clerk/var-from-def)))
    :render-fn
    '(fn [code-state _]
-      [:div.bg-neutral-50
-       [nextjournal.clerk.render.code/editor @code-state
-        {:on-change (fn [text] (swap! code-state (constantly text)))
-         :extensions (.concat (codemirror.view/lineNumbers)
-                              (codemirror.view/highlightActiveLine)
-                              nextjournal.clerk.render.code/paredit-keymap)}]
-       [:button.absolute.right-2.text-xl.cursor-pointer
-        {:class "top-1/2 -translate-y-1/2"
-         :on-click #(v/clerk-eval `(search!))} "▶️"]])})
+      [:div.p-1
+       [:div.flex.bg-white.rounded-lg.shadow.mt-4.p-2.border
+        [:div.flex-auto.flex.gap-2
+         [:div.flex-auto.rounded.bg-slate-50.shadow-inner.border.px-2
+          [nextjournal.clerk.render.code/editor @code-state
+           {:on-change (fn [text] (swap! code-state (constantly text)))
+            :extensions (array nextjournal.clerk.render.code/paredit-keymap)}]]
+         [:button.rounded.bg-indigo-500.font-bold.text-xs.font-sans.px-3.py-1.text-white.hover:bg-indigo-600
+          {:on-click #(v/clerk-eval `(search!))} "Run Query"]
+         [:button.rounded.bg-white.font-bold.text-xs.font-sans.px-3.py-1.text-indigo-600.border.hover:bg-slate-50
+          {:on-click #(v/clerk-eval `(reset-state!))} "Clear"]]]])})
 
-^{::clerk/sync true ::clerk/viewer editor-sync-viewer ::clerk/visibility {:result :show}}
+^{::clerk/visibility {:result :show}}
+(clerk/html
+ {::clerk/css-class [:mx-4 :mb-0]}
+ [:div.pt-6
+  [:h1.text-lg.mb-2.px-4 "🪵 Log Search powered by Lucene"]
+  [:div.p-1
+   [:div.rounded-lg.bg-white.shadow.font-sans.border
+    [:div.text-sm.mt-0.mb-4.px-4.py-2.border-b.flex.justify-between.items-center.
+     [:span.font-bold "Drag to filter by timeframe"]
+     [:span.text-slate-500.font-normal.text-xs "double-click to reset"]]
+    [:div.px-4
+     (clerk/vl
+      {:width 1200
+       :height 100
+       :encoding {"x" {"field" "logentry"
+                       "timeUnit" {"utc" true
+                                   "unit" "yearmonthdatehoursminutesseconds"}
+                       "type" "nominal"
+                       "axis" {"labelAngle" 0}
+                       "title" nil}
+                  "y" {"aggregate" "count"
+                       "type" "quantitative"
+                       "title" "count"}}
+       :layer [{:data {:values (map (fn [{:keys [timestamp]}] {:logentry (vega-datetime-str timestamp)}) @!log-lines)}
+                :mark "bar"}
+               {:params [{:name "interval_selector"
+                          :select {:type "interval"
+                                   :encodings ["x"]}}]
+                :mark "area"}]
+       :embed/callback (v/->viewer-eval
+                        '(fn [embedded-vega]
+                           (let [view (.-view embedded-vega)
+                                 !selection-state (atom nil)]
+                             ;; on every selection change, store the selection
+                             (.addSignalListener view
+                                                 "interval_selector"
+                                                 (fn [_signal selection]
+                                                   (reset! !selection-state
+                                                           (js->clj (.-utcyearmonthdatehoursminutesseconds_logentry selection)))))
+                             ;; mouse releases set the sync'd atom to the current
+                             ;; selection, avoiding many updates to sync'd atom on
+                             ;; every intermediate selection change
+                             (.addEventListener view
+                                                "mouseup"
+                                                (fn [_event _item]
+                                                  (swap! nextjournal.lurk/vega-selection (constantly (deref !selection-state)))
+                                                  (v/clerk-eval `(search!)))))
+                           embedded-vega))
+       :embed/opts {:actions false}})]]]])
+
+^{::clerk/sync true ::clerk/viewer editor-sync-viewer ::clerk/visibility {:result :show}
+  ::clerk/css-class [:mb-4 :mx-4]}
 (defonce !lucene-query (atom ""))
 
 (defn search! []
@@ -236,26 +249,19 @@
   (search!))
 
 ^{::clerk/visibility {:result :show}
-  ::clerk/viewer '(fn [_side]
-                    (v/html [:div.text-center
-                             [:button.bg-blue-500.hover:bg-blue-700.text-white.font-bold.py-2.px-4.rounded
-                              {:on-click (fn [e]
-                                           (v/clerk-eval '(reset-state!)))} "Clear ❌"]]))}
-["Clear ❌"]
-
-
-;; ## 🪵 query results
-
-^{::clerk/visibility {:result :show}}
-(v/html [:h3 (str (count @!query-results) " of " (count @!log-lines) " logs")])
+  ::clerk/css-class [:mb-0 :mx-4 :p-1 :pb-0]}
+(v/html
+ [:div.font-sans.px-4.py-2.bg-white.rounded-t-lg.border-b.flex.items-center.justify-between.shadow
+  [:div.text-sm.font-bold "Query results"]
+  [:div.text-xs.text-slate-500 (str "showing " (count @!query-results) " of " (count @!log-lines) " logs")]])
 
 ^{::clerk/visibility {:result :show}
-  ::clerk/width :full}
+  ::clerk/css-class [:bg-white :mx-5 :rounded-b-lg :shadow]}
 (let [ordering [:doc-id :score :level :logger_name :timestamp :message :ductile]]
   (clerk/table
-    {:head ordering
-     :rows (map #(-> %
-                     (merge (:hit %))
-                     (dissoc :hit)
-                     ((apply juxt ordering)))
-                @!query-results)}))
+   {:head ordering
+    :rows (map #(-> %
+                    (merge (:hit %))
+                    (dissoc :hit)
+                    ((apply juxt ordering)))
+               @!query-results)}))
