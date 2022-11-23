@@ -199,7 +199,8 @@
 (defonce !query-results (atom []))
 
 (def editor-sync-viewer
-  {:transform-fn (comp v/mark-presented
+  {:var-from-def? true
+   :transform-fn (comp v/mark-presented
                        (v/update-val
                         (comp v/->viewer-eval symbol :nextjournal.clerk/var-from-def)))
    :render-fn
@@ -213,20 +214,20 @@
        [:button.absolute.right-2.text-xl.cursor-pointer
         {:class "top-1/2 -translate-y-1/2"
          :on-click #(v/clerk-eval `(search!))} "▶️"]])})
+
 ^{::clerk/sync true ::clerk/viewer editor-sync-viewer ::clerk/visibility {:result :show}}
 (defonce !lucene-query (atom ""))
-
 
 (defn search! []
   (reset! !query-results
           (if (or (seq @!lucene-query) (seq @vega-selection))
             (search-lucene
-              {:timerange (when (seq @vega-selection)
-                            [(DateTools/timeToString (.getTime (first @vega-selection))
-                                                     DateTools$Resolution/SECOND)
-                             (DateTools/timeToString (.getTime (last @vega-selection))
-                                                     DateTools$Resolution/SECOND)])
-               :text @!lucene-query})
+             {:timerange (when (seq @vega-selection)
+                           [(DateTools/timeToString (.getTime (first @vega-selection))
+                                                    DateTools$Resolution/SECOND)
+                            (DateTools/timeToString (.getTime (last @vega-selection))
+                                                    DateTools$Resolution/SECOND)])
+              :text @!lucene-query})
             (map #(update % :timestamp str) (reverse @!log-lines)))))
 
 (defn reset-state! []
