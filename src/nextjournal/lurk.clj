@@ -10,6 +10,7 @@
             [msync.lucene :as lucene]
             [msync.lucene.analyzers :as analyzers]
             [msync.lucene.document :as ld]
+            [msync.lucene.indexer :as indexer]
             [msync.lucene.search]
             [msync.lucene.query :as query]
             [nextjournal.clerk :as clerk]
@@ -21,24 +22,6 @@
            [org.apache.lucene.search BooleanQuery$Builder BooleanClause$Occur TermRangeQuery]))
 
 #_(clerk/clear-cache!)
-
-(defn ^:private tailer [file delay-ms from-end? line-callback]
-  (Tailer/create file
-                 (reify TailerListener
-                   (init [_this _tailer])
-                   (fileNotFound [_this])
-                   (fileRotated [_this])
-                   (^void handle [_this ^String line] (line-callback line))
-                   (^void handle [_this ^Exception e] (throw e)))
-                 delay-ms
-                 from-end?))
-
-(defn parse-timestamp [datetime-str]
-  (Instant/from (.parse
-                  (.withZone
-                    (DateTimeFormatter/ofPattern "yyyy-MM-dd'T'HH:mm:ss[.SSS][.SS][.S]z")
-                    (ZoneId/from ZoneOffset/UTC))
-                  datetime-str)))
 
 (def json-logger-name-prefix "example-service")
 
@@ -64,7 +47,8 @@
 (defn index-line! [index data]
   (lucene/index! index
                  (update data :timestamp (fn instant->ms-str [inst]
-                                           (DateTools/timeToString (.toEpochMilli inst) DateTools$Resolution/SECOND)))
+                                           (DateTools/timeToString (.toEpochMilli inst)
+                                                                   DateTools$Resolution/SECOND)))
                  {:stored-fields  [:level :timestamp :message :logger_name]
                   :suggest-fields [:logger_name]}))
 
@@ -85,20 +69,28 @@
              "{:message \"a thing\"}"
              ["20221116080730" "20221116080802"])
 
-(defonce lucene-index (log-index))
-
 (defn lucene-datetime->instant [lucene-datetime-str]
   (Instant/from (.parse (.withZone (DateTimeFormatter/ofPattern "yyyyMMddHHmmss")
                                    (ZoneId/from ZoneOffset/UTC))
                         lucene-datetime-str)))
 
+(defonce !state (atom {}))
+
 (defn search-lucene [{:keys [text timerange]}]
-  (lucene/search lucene-index
-                 (build-query (:analyzer lucene-index) text timerange)
-                 {:results-per-page 200
-                  :hit->doc         (comp #(update % :timestamp (comp str lucene-datetime->instant))
-                                          logline->edn
-                                          ld/document->map)}))
+  (let [{:keys [lucene-index]} @!state]
+    (lucene/search lucene-index
+                   (build-query (:analyzer lucene-index) text timerange)
+                   {:results-per-page 200
+                    :hit->doc         (comp #(update % :timestamp (comp str lucene-datetime->instant))
+                                            logline->edn
+                                            ld/document->map)})))
+
+(defn parse-timestamp [datetime-str]
+  (Instant/from (.parse
+                  (.withZone
+                    (DateTimeFormatter/ofPattern "yyyy-MM-dd'T'HH:mm:ss[.SSS][.SS][.S]z")
+                    (ZoneId/from ZoneOffset/UTC))
+                  datetime-str)))
 
 (defn parse-line [line]
   (-> line
@@ -109,41 +101,81 @@
       (update :timestamp parse-timestamp)))
 
 (defonce !log-lines (atom []))
+(defonce !query-results (atom []))
 
-(defonce follower
+(defn ^:private tailer [file delay-ms from-end? line-callback]
+  (Tailer/create file
+                 (reify TailerListener
+                   (init [_this _tailer])
+                   (fileNotFound [_this])
+                   (fileRotated [_this])
+                   (^void handle [_this ^String line] (line-callback line))
+                   (^void handle [_this ^Exception e] (throw e)))
+                 delay-ms
+                 from-end?))
+
+(defn follower
+  "tails a file, parsing and indexing into lucene each new line"
+  [filepath]
   (tailer
-    (io/file "example_service/json-logs/example-service.log")
+    (io/file filepath)
     1000
     false
     (fn [line]
       (try
         (let [entry (parse-line line)]
           (swap! !log-lines conj (logline->edn entry))
-          (index-line! lucene-index entry))
+          (index-line! (:lucene-index @!state) entry))
         (catch Exception e
           (println e))))))
 
-#_(lucene/search lucene-index
-                 (build-query (:analyzer locking-index) "" ["20221116090906" "20221116090908"]))
-
-(defn recompute-thread []
+(defn recompute-thread
+  "thread that runs clerk recompute every 20 seconds to display any newly
+  procssed log lines"
+  []
   (let [exit-chan (async/chan 1)]
     (async/thread
-      (loop [queue-ch (async/timeout 20000)]
+      (loop [queue-ch (async/timeout 20000)
+             log-size (count @!log-lines)]
         (let [[_ chan] (async/alts!! [queue-ch exit-chan])]
           (when-not (= exit-chan chan)
-            (clerk/recompute!)
-            (recur (async/timeout 20000))))))
+            (when (> (count @!log-lines) log-size)
+              (clerk/recompute!))
+            (recur (async/timeout 20000) (count @!log-lines))))))
     (fn [] (async/>!! exit-chan :exit))))
 
-(defonce stop-recompute! (recompute-thread))
+(defn start!
+  "start the lucene index, file follower, and thread that recomputes clerk
+  notebook every 20 seconds"
+  []
+  (when (empty? @!state)
+    ;; add the index first because others startup depends on it
+    (swap! !state assoc :lucene-index (log-index))
+    (swap! !state
+           assoc
+           :follower (follower "example_service/json-logs/example-service.log")
+           :stop-clerk-recompute (recompute-thread))
 
-(comment
-  (do
-    (stop-recompute!)
-    (.stop follower)
-    (reset! !log-lines []))
-  )
+    ;; update the UI after a second to get results from lucene
+    ;; indexing
+    (future (Thread/sleep 1000)
+            (clerk/recompute!))))
+
+^:clerk/no-cache
+(start!)
+
+(defn stop! []
+  (when-not (empty? @!state)
+    (let [{:keys [lucene-index follower stop-clerk-recompute]} @!state]
+      (reset! !log-lines [])
+      (reset! !query-results [])
+      (indexer/clear! lucene-index)
+      (stop-clerk-recompute)
+      (.stop follower)
+      (clerk/recompute!)
+      (reset! !state {}))))
+
+#_(stop!)
 
 ^::clerk/sync
 (defonce vega-selection (atom nil))
@@ -154,8 +186,6 @@
                  (ZoneId/from ZoneOffset/UTC))
                 instant)
        " GMT"))
-
-(defonce !query-results (atom []))
 
 (clerk/eval-cljs
  '(require '["@codemirror/view" :refer [keymap]]))
