@@ -17,9 +17,9 @@ start a repl via something like
 clj -Adev -Sdeps '{:deps {cider/cider-nrepl {:mvn/version "0.29.0"} }}' -m nrepl.cmdline --middleware "[cider.nrepl/cider-middleware]"
 ```
 
-open `src/nextjournal/lurk.clj`, run `(nextjournal.clerk/show!)`, and navigate to [http://localhost:6677/](http://localhost:6677/)
+open [`src/nextjournal/lurk.clj`](https://github.com/nextjournal/lurk/blob/main/src/nextjournal/lurk.clj), run `(nextjournal.clerk/show!)`, and navigate to [http://localhost:6677/](http://localhost:6677/)
 
-this will create an in-memory lucene index over the contents of `example_service/json-logs/example-service.log` and display a dashboard. Any new addtions to that `example-service.log` will get indexed and shown.
+this will create an in-memory lucene index over the contents of [`example_service/json-logs/example-service.log`](https://github.com/nextjournal/lurk/blob/main/example_service/json-logs/example-service.log) and display a dashboard. Any new addtions to that `example-service.log` will get indexed and shown.
 
 ### generating example logs
 
