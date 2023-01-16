@@ -1,0 +1,40 @@
+<configuration scan="true" scanPeriod="10 seconds">
+
+  <!-- Silence Logback's own status messages about config parsing
+         https://github.com/nextjournal/nextjournal/issues/2526-->
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
+
+  <!-- Console output -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- encoder defaults to ch.qos.logback.classic.encoder.PatternLayoutEncoder -->
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) %logger{36} - %msg%n</pattern>
+    </encoder>
+    <!-- Only log level INFO and above -->
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>TRACE</level>
+    </filter>
+  </appender>
+
+  <appender name="jsonConsoleAppender" class="ch.qos.logback.core.FileAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+
+    <file>json-logs/example-service.log</file>
+  </appender>
+
+  <!-- By default, only log at level INFO and above. -->
+  <root level="INFO">
+    <appender-ref ref="jsonConsoleAppender"/>
+    <appender-ref ref="STDOUT" />
+  </root>
+
+  <!-- For loggers in the these namespaces, log at all levels. -->
+  <logger name="user" level="ALL" />
+
+  <!-- Log everything -->
+  <logger name="org.xnio" level="WARN" />
+  <logger name="org.eclipse.jetty.server.handler.ContextHandler" level="WARN" />
+  <logger name="org.jboss" level="WARN" />
+  <logger name="org.pojectodd" level="WARN" />
+
+</configuration>

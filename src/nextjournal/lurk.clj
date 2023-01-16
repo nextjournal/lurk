@@ -113,7 +113,7 @@
 
 (defonce follower
   (tailer
-    (io/file "resources/example.log")
+    (io/file "example_service/json-logs/example-service.log")
     1000
     false
     (fn [line]
