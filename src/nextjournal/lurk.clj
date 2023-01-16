@@ -158,6 +158,9 @@
 
 (defonce !query-results (atom []))
 
+(clerk/eval-cljs
+ '(require '["@codemirror/view" :refer [keymap]]))
+
 (def editor-sync-viewer
   {:var-from-def? true
    :transform-fn (comp v/mark-presented
@@ -169,9 +172,8 @@
        [:div.flex.bg-white.rounded-lg.shadow.mt-4.p-2.border
         [:div.flex-auto.flex.gap-2
          [:div.flex-auto.rounded.bg-slate-50.shadow-inner.border.px-2
-          [nextjournal.clerk.render.code/editor @code-state
-           {:on-change (fn [text] (swap! code-state (constantly text)))
-            :extensions (array nextjournal.clerk.render.code/paredit-keymap)}]]
+          [nextjournal.clerk.render.code/editor code-state
+           {:extensions (array (.of keymap nextjournal.clojure-mode.keymap/paredit))}]]
          [:button.rounded.bg-indigo-500.font-bold.text-xs.font-sans.px-3.py-1.text-white.hover:bg-indigo-600
           {:on-click #(v/clerk-eval `(search!))} "Run Query"]
          [:button.rounded.bg-white.font-bold.text-xs.font-sans.px-3.py-1.text-indigo-600.border.hover:bg-slate-50

@@ -2,7 +2,7 @@
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         org.clojure/core.async {:mvn/version "1.6.673"}
         commons-io/commons-io {:mvn/version "2.11.0"}
-        io.github.nextjournal/clerk {:git/sha "783affa52775b916dd1cf9edf14ca962015c1801"}
+        io.github.nextjournal/clerk {:git/sha "d978d0ca6cb7b10cf1a0c0f370cdba6e096551e3"}
         org.msync/lucene-clj {:mvn/version "0.2.0-SNAPSHOT"}
         cheshire/cheshire    {:mvn/version "5.10.0"}}
  :aliases {:dev {:extra-paths ["dev"]}}}
