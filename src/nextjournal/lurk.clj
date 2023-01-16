@@ -1,4 +1,5 @@
 (ns nextjournal.lurk
+  "A log dashboard tool powered by Clerk and Lucene"
   {:nextjournal.clerk/visibility {:code :hide :result :hide}
    :nextjournal.clerk/css-class [:bg-slate-200 :min-h-screen]}
   (:require [cheshire.core :as json]
@@ -206,7 +207,7 @@
          [:button.rounded.bg-indigo-500.font-bold.text-xs.font-sans.px-3.py-1.text-white.hover:bg-indigo-600
           {:on-click #(v/clerk-eval `(search!))} "Run Query"]
          [:button.rounded.bg-white.font-bold.text-xs.font-sans.px-3.py-1.text-indigo-600.border.hover:bg-slate-50
-          {:on-click #(v/clerk-eval `(reset-state!))} "Clear"]]]])})
+          {:on-click #(v/clerk-eval `(reset-ui-state!))} "Clear"]]]])})
 
 ^{::clerk/visibility {:result :show}}
 (clerk/html
@@ -274,7 +275,7 @@
               :text @!lucene-query})
             (map #(update % :timestamp str) (reverse @!log-lines)))))
 
-(defn reset-state! []
+(defn reset-ui-state! []
   (reset! vega-selection nil)
   (reset! !lucene-query "")
   (search!))
