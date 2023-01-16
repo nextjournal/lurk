@@ -40,15 +40,14 @@
                     (ZoneId/from ZoneOffset/UTC))
                   datetime-str)))
 
+(def json-logger-name-prefix "example-service")
+
 (defn logline->edn [logline]
   ;; we can't use `edn/read-string` because it doesn't handle `#'some-var`
   ;; https://clojurians-log.clojureverse.org/clojure/2018-11-22/1542917788.910600
   (binding [*default-data-reader-fn* tagged-literal]
     (cond-> logline
-      (:ductile logline)
-      (update :ductile read-string)
-
-      (str/starts-with? (:logger_name logline) "ductile")
+      (str/starts-with? (:logger_name logline) json-logger-name-prefix)
       (update :message read-string))))
 
 (defn log-analyzer []
@@ -66,7 +65,7 @@
   (lucene/index! index
                  (update data :timestamp (fn instant->ms-str [inst]
                                            (DateTools/timeToString (.toEpochMilli inst) DateTools$Resolution/SECOND)))
-                 {:stored-fields  [:level :timestamp :ductile :message :logger_name]
+                 {:stored-fields  [:level :timestamp :message :logger_name]
                   :suggest-fields [:logger_name]}))
 
 (defn build-query [analyzer query-text query-timerange]
@@ -113,7 +112,7 @@
 
 (defonce follower
   (tailer
-    (io/file "resources/example.log")
+    (io/file "example_service/json-logs/example-service.log")
     1000
     false
     (fn [line]
@@ -259,7 +258,7 @@
 
 ^{::clerk/visibility {:result :show}
   ::clerk/css-class [:bg-white :mx-5 :rounded-b-lg :shadow]}
-(let [ordering [:doc-id :score :level :logger_name :timestamp :message :ductile]]
+(let [ordering [:doc-id :score :level :logger_name :timestamp :message]]
   (clerk/table
    {:head ordering
     :rows (map #(-> %

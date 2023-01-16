@@ -1,0 +1,10 @@
+{:paths ["resources" "src"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        ch.qos.logback/logback-classic {:mvn/version "1.2.11"}
+
+        io.pedestal/pedestal.log {:mvn/version "0.5.10"}
+        net.logstash.logback/logstash-logback-encoder {:mvn/version "7.0.1"}}
+
+ :aliases
+ {:run {:exec-fn example-service.main/-main}}}
+
