@@ -2,6 +2,9 @@
 
 A log dashboard tool powered by Clerk and Lucene
 
+
+![Lurk Screenshot](screenshot.png)
+
 ## startup
 
 start a repl via something like
