@@ -2,9 +2,9 @@
   (:require [io.pedestal.log :as log]))
 
 (def logger-names
-  ["logic"
-   "controller"
-   "adapter"])
+  ["example-service.logic"
+   "example-service.controller"
+   "example-service.adapter"])
 
 (defn log-data []
   (rand-nth
