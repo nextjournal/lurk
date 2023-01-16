@@ -1,5 +1,12 @@
 (ns nextjournal.lurk
-  "A log dashboard tool powered by Clerk and Lucene"
+  "A log dashboard tool powered by Clerk and Lucene
+
+  Comprised of the following components:
+  - UI that shows logs and allows selecting a date range or setting a Lucene query
+  - In-memory Lucene index
+  - File follower process that watches a log file, parsing new json log lines and indexing then into Lucene
+  - UI updater that, at regular intervals, re-shows the UI if new logs have been found
+  "
   {:nextjournal.clerk/visibility {:code :hide :result :hide}
    :nextjournal.clerk/css-class [:bg-slate-200 :min-h-screen]}
   (:require [cheshire.core :as json]
@@ -21,8 +28,6 @@
            [org.apache.commons.io.input Tailer TailerListener]
            [org.apache.lucene.document DateTools DateTools$Resolution]
            [org.apache.lucene.search BooleanQuery$Builder BooleanClause$Occur TermRangeQuery]))
-
-#_(clerk/clear-cache!)
 
 (def json-logger-name-prefix "example-service")
 
