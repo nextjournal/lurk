@@ -4,6 +4,8 @@ A log dashboard tool powered by [Clerk](https://github.com/nextjournal/clerk) an
 
 ![Lurk Screenshot](screenshot.png)
 
+[Video demo from reClojure 2022](https://youtu.be/3bs3QX92kYA?t=289)
+
 ## 🚦 Status
 
 A proof-of-concept ALPHA
