@@ -29,6 +29,8 @@
            [org.apache.lucene.document DateTools DateTools$Resolution]
            [org.apache.lucene.search BooleanQuery$Builder BooleanClause$Occur TermRangeQuery]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (def json-logger-name-prefix "example-service")
 
 (defn logline->edn [logline]
@@ -135,53 +137,7 @@
         (catch Exception e
           (println e))))))
 
-(defn recompute-thread
-  "thread that runs clerk recompute every 20 seconds to display any newly
-  procssed log lines"
-  []
-  (let [exit-chan (async/chan 1)]
-    (async/thread
-      (loop [queue-ch (async/timeout 20000)
-             log-size (count @!log-lines)]
-        (let [[_ chan] (async/alts!! [queue-ch exit-chan])]
-          (when-not (= exit-chan chan)
-            (when (> (count @!log-lines) log-size)
-              (clerk/recompute!))
-            (recur (async/timeout 20000) (count @!log-lines))))))
-    (fn [] (async/>!! exit-chan :exit))))
-
-(defn start!
-  "start the lucene index, file follower, and thread that recomputes clerk
-  notebook every 20 seconds"
-  []
-  (when (empty? @!state)
-    ;; add the index first because others startup depends on it
-    (swap! !state assoc :lucene-index (log-index))
-    (swap! !state
-           assoc
-           :follower (follower "example_service/json-logs/example-service.log")
-           :stop-clerk-recompute (recompute-thread))
-
-    ;; update the UI after a second to get results from lucene
-    ;; indexing
-    (future (Thread/sleep 1000)
-            (clerk/recompute!))))
-
-^:clerk/no-cache
-(start!)
-
-(defn stop! []
-  (when-not (empty? @!state)
-    (let [{:keys [lucene-index follower stop-clerk-recompute]} @!state]
-      (reset! !log-lines [])
-      (reset! !query-results [])
-      (indexer/clear! lucene-index)
-      (stop-clerk-recompute)
-      (.stop follower)
-      (clerk/recompute!)
-      (reset! !state {}))))
-
-#_(stop!)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ^::clerk/sync
 (defonce vega-selection (atom nil))
@@ -302,3 +258,56 @@
                     (dissoc :hit)
                     ((apply juxt ordering)))
                @!query-results)}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn recompute-thread
+  "thread that runs clerk recompute every 20 seconds to display any newly
+  procssed log lines"
+  []
+  (let [exit-chan (async/chan 1)]
+    (async/thread
+      (loop [queue-ch (async/timeout 20000)
+             log-size (count @!log-lines)]
+        (let [[_ chan] (async/alts!! [queue-ch exit-chan])]
+          (when-not (= exit-chan chan)
+            (when (> (count @!log-lines) log-size)
+              (clerk/recompute!))
+            (recur (async/timeout 20000) (count @!log-lines))))))
+    (fn [] (async/>!! exit-chan :exit))))
+
+
+(defn start!
+  "start the lucene index, file follower, and thread that recomputes clerk
+  notebook every 20 seconds"
+  []
+  (when (empty? @!state)
+    ;; add the index first because others startup depends on it
+    (swap! !state assoc :lucene-index (log-index))
+    (swap! !state
+           assoc
+           :follower (follower "example_service/json-logs/example-service.log")
+           :stop-clerk-recompute (recompute-thread))
+
+    ;; update the UI after a second to get results from lucene
+    ;; indexing
+    (future (Thread/sleep 1000)
+            (reset-ui-state!)
+            (clerk/recompute!))))
+
+^:clerk/no-cache
+(start!)
+
+(defn stop! []
+  (when-not (empty? @!state)
+    (let [{:keys [lucene-index follower stop-clerk-recompute]} @!state]
+      (reset! !log-lines [])
+      (reset! !query-results [])
+      (indexer/clear! lucene-index)
+      (stop-clerk-recompute)
+      (.stop follower)
+      (clerk/recompute!)
+      (reset! !state {}))))
+
+#_(stop!)
+
