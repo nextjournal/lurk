@@ -154,9 +154,9 @@
 
 (def editor-sync-viewer
   {:var-from-def? true
-   :transform-fn (comp v/mark-presented
-                       (v/update-val
-                        (comp v/->viewer-eval symbol :nextjournal.clerk/var-from-def)))
+   :transform-fn (comp clerk/mark-presented
+                       (clerk/update-val
+                        (comp nextjournal.clerk.viewer/->viewer-eval symbol :nextjournal.clerk/var-from-def)))
    :render-fn
    '(fn [code-state _]
       [:div.p-1
@@ -166,9 +166,9 @@
           [nextjournal.clerk.render.code/editor code-state
            {:extensions (array (.of keymap nextjournal.clojure-mode.keymap/paredit))}]]
          [:button.rounded.bg-indigo-500.font-bold.text-xs.font-sans.px-3.py-1.text-white.hover:bg-indigo-600
-          {:on-click #(v/clerk-eval `(search!))} "Run Query"]
+          {:on-click #(nextjournal.clerk.render/clerk-eval `(search!))} "Run Query"]
          [:button.rounded.bg-white.font-bold.text-xs.font-sans.px-3.py-1.text-indigo-600.border.hover:bg-slate-50
-          {:on-click #(v/clerk-eval `(reset-ui-state!))} "Clear"]]]])})
+          {:on-click #(nextjournal.clerk.render/clerk-eval `(reset-ui-state!))} "Clear"]]]])})
 
 ^{::clerk/visibility {:result :show}}
 (clerk/html
@@ -199,7 +199,7 @@
                           :select {:type "interval"
                                    :encodings ["x"]}}]
                 :mark "area"}]
-       :embed/callback (v/->viewer-eval
+       :embed/callback (nextjournal.clerk.viewer/->viewer-eval
                         '(fn [embedded-vega]
                            (let [view (.-view embedded-vega)
                                  !selection-state (atom nil)]
@@ -216,7 +216,7 @@
                                                 "mouseup"
                                                 (fn [_event _item]
                                                   (swap! nextjournal.lurk/vega-selection (constantly (deref !selection-state)))
-                                                  (v/clerk-eval `(search!)))))
+                                                  (nextjournal.clerk.render/clerk-eval `(search!)))))
                            embedded-vega))
        :embed/opts {:actions false}})]]]])
 
@@ -243,10 +243,10 @@
 
 ^{::clerk/visibility {:result :show}
   ::clerk/css-class [:mb-0 :mx-4 :p-1 :pb-0]}
-(v/html
- [:div.font-sans.px-4.py-2.bg-white.rounded-t-lg.border-b.flex.items-center.justify-between.shadow
-  [:div.text-sm.font-bold "Query results"]
-  [:div.text-xs.text-slate-500 (str "showing " (count @!query-results) " of " (count @!log-lines) " logs")]])
+(clerk/html
+  [:div.font-sans.px-4.py-2.bg-white.rounded-t-lg.border-b.flex.items-center.justify-between.shadow
+   [:div.text-sm.font-bold "Query results"]
+   [:div.text-xs.text-slate-500 (str "showing " (count @!query-results) " of " (count @!log-lines) " logs")]])
 
 ^{::clerk/visibility {:result :show}
   ::clerk/css-class [:bg-white :mx-5 :rounded-b-lg :shadow]}
